@@ -9,6 +9,10 @@ import CreateMeeting from './pages/create-meeting'
 import Main from './pages/main'
 import Meeting from './pages/meeting'
 
+if (typeof window !== 'undefined') {
+  window.global = window
+}
+
 const theme = createTheme({
   type: 'dark',
   theme: {

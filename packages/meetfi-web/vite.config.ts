@@ -18,7 +18,7 @@ export default defineConfig({
     esbuildOptions: {
       // Node.js global to browser globalThis
       define: {
-        global: 'window',
+        global: 'globalThis',
       },
       // Enable esbuild polyfill plugins
       plugins: [
