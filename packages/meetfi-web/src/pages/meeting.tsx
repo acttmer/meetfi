@@ -363,6 +363,10 @@ export default () => {
                 <Button color="secondary" disabled>
                   Withdraw Request is Pending
                 </Button>
+              ) : owners.length === 1 ? (
+                <Button color="secondary" onPress={handleWithdraw}>
+                  Finish the Meeting
+                </Button>
               ) : (
                 <Button color="secondary" onPress={handleWithdraw}>
                   Request to Withdraw
