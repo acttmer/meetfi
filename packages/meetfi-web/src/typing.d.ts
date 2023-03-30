@@ -12,6 +12,15 @@ declare interface MeetingNFTMetadata {
 declare interface MeetingJoinRequest {
   tokenId: string
   user: string
-  txHash: string
-  approvals?: Record<string, boolean>
+  safeTxHash: string
+  safeTxData: any
+}
+
+declare interface MeetingWithdrawRequest {
+  tokenId: string
+  user: string
+  transferSafeTxHash: string
+  transferSafeTxData: any
+  removeOwnerSafeTxHash: string
+  removeOwnerSafeTxData: any
 }
