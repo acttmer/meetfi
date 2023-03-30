@@ -21,6 +21,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   setDoc,
@@ -48,6 +49,7 @@ export default () => {
   const [safe, setSafe] = useState<Safe>()
   const [safeService, setSafeService] = useState<SafeServiceClient>()
   const [owners, setOwners] = useState<string[]>()
+  const [finished, setFinished] = useState(false)
   const [joinRequests, setJoinRequests] = useState<MeetingJoinRequest[]>()
   const [withdrawRequests, setWithdrawRequests] =
     useState<MeetingWithdrawRequest[]>()
@@ -76,6 +78,14 @@ export default () => {
     )
   }, [id])
 
+  const loadFinished = useCallback(async () => {
+    const snapshot = await getDoc(
+      doc(collection(firestore, 'finished_meetings'), id),
+    )
+
+    setFinished(snapshot.exists())
+  }, [id])
+
   useEffect(() => {
     ;(async () => {
       const meetingNFTFactory = new MeetingNFT__factory()
@@ -102,13 +112,21 @@ export default () => {
 
       await loadJoinRequests()
       await loadWithdrawRequests()
+      await loadFinished()
 
       setMetadata(metadata_)
       setSafe(safe_)
       setSafeService(safeService_)
       setOwners(owners_)
     })()
-  }, [id, loadJoinRequests, loadWithdrawRequests, provider, signer])
+  }, [
+    id,
+    loadFinished,
+    loadJoinRequests,
+    loadWithdrawRequests,
+    provider,
+    signer,
+  ])
 
   const handleJoin = useCallback(async () => {
     if (!signer || !address || !safe || !safeService || !owners || !metadata)
@@ -311,6 +329,51 @@ export default () => {
     [address, loadWithdrawRequests, safe, safeService, signer],
   )
 
+  const handleFinish = useCallback(async () => {
+    if (!signer || !address || !safe || !safeService || !owners || !metadata)
+      return
+
+    setLoading(true)
+    setLoadingMessage('Finishing the meeting')
+
+    const safeTx = await safe.createTransaction({
+      safeTransactionData: {
+        to: address,
+        value: ethers.utils
+          .parseUnits(metadata.meeting.stake, 'ether')
+          .toString(),
+        data: '0x',
+      },
+    })
+
+    const safeTxHash = await safe.getTransactionHash(safeTx)
+    const ethSig = await safe.signTransactionHash(safeTxHash)
+
+    await safeService.proposeTransaction({
+      safeAddress: safe.getAddress(),
+      safeTxHash,
+      safeTransactionData: safeTx.data,
+      senderAddress: address,
+      senderSignature: ethSig.data,
+    })
+
+    const approval = await safe.approveTransactionHash(safeTxHash)
+    await approval.transactionResponse?.wait()
+
+    const tx = await safe.executeTransaction(safeTx)
+    await tx.transactionResponse?.wait()
+
+    await setDoc(doc(collection(firestore, 'finished_meetings'), id), {
+      finishedByUser: address,
+      finishedAt: Date.now(),
+    })
+
+    await loadFinished()
+
+    setLoading(false)
+    setLoadingMessage(undefined)
+  }, [address, id, loadFinished, metadata, owners, safe, safeService, signer])
+
   return (
     <Container sm css={{ paddingTop: 30, paddingBottom: 30 }}>
       <Text h1>{metadata?.name}</Text>
@@ -364,9 +427,15 @@ export default () => {
                   Withdraw Request is Pending
                 </Button>
               ) : owners.length === 1 ? (
-                <Button color="secondary" onPress={handleWithdraw}>
-                  Finish the Meeting
-                </Button>
+                finished ? (
+                  <Button color="secondary" disabled>
+                    Already finished
+                  </Button>
+                ) : (
+                  <Button color="secondary" onPress={handleFinish}>
+                    Finish the Meeting
+                  </Button>
+                )
               ) : (
                 <Button color="secondary" onPress={handleWithdraw}>
                   Request to Withdraw

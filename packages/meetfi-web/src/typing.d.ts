@@ -24,3 +24,8 @@ declare interface MeetingWithdrawRequest {
   removeOwnerSafeTxHash: string
   removeOwnerSafeTxData: any
 }
+
+declare interface FinishedMeeting {
+  finishedByUser: string
+  finishedAt: number
+}
